@@ -1,0 +1,69 @@
+# Mapping Example in R
+
+Read in parquet data
+```{r}
+# read in parquet data
+
+readRenviron("C:/Users/BoydClaire/.Renviron")
+library(arrow)
+library(sf)
+library(leaflet)
+library(dplyr)
+
+parquet_file = "C:/Users/BoydClaire/workspace/geospatial_data/output/block_polygons.parquet"
+df <- arrow::read_parquet(parquet_file, as_tibble = TRUE) %>%
+   dplyr::mutate(
+       geom = sf::st_as_sfc(geometry, EWKB = TRUE)
+   ) %>%
+   dplyr::select(-geometry, -OBJECTID, -`__index_level_0__`) %>%
+   rename(
+       geometry = geom
+   )
+gdf = sf::st_as_sf(df, geometry=df$geometry)
+```
+
+Static maps
+```{r}
+# basic map
+library(ggplot2)
+
+ggplot(gdf) +
+  geom_sf(data = gdf, color = "blue") +
+  annotation_scale(location = "bl") +
+  theme_minimal()
+```
+
+```{r}
+# map with carto background
+library(maptiles)
+library(ggspatial)
+
+# get bounding box, set CRS projection, and generate base map
+bbox <- st_bbox(gdf)
+st_crs(gdf) <- 4326
+bg <- maptiles::get_tiles(gdf, provider = "CartoDB.Positron", crop = TRUE, zoom = 12)
+
+# same plot as before, but added the basemap
+ggplot() +
+  layer_spatial(bg) +
+  geom_sf(data = gdf, color = "blue") +
+  annotation_scale(location = "bl") +
+  theme_minimal()
+```
+
+Interactive maps
+
+```{r}
+library(leaflet)
+
+leaflet(gdf) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(
+    fillColor = "blue", 
+    color = "black",
+    weight = 1,
+    fillOpacity = 0.6,
+    popup = ~paste("Block:", BLOCK)
+  )
+```
+
