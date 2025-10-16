@@ -1,4 +1,4 @@
-# Geospatial Data
+# GitHub Actions Demo -- Geospatial Data Transformation
 
 This project automates the process to transform the up-to-date geometries from the [Digital Tax Map on ArcGIS Online](https://nyc.maps.arcgis.com/home/item.html?id=2cf51c5f165c4c569691617a492d9b21) to geo-dataframes that are easy to use in R or python.
 
