@@ -14,7 +14,6 @@ layer_params = {
         "name": "NYC_Borough_Boundary",
         "fields": "OBJECTID, BoroCode, BoroName, Shape__Area, Shape__Length",
     },
-    "nbhd": None,
     "block": {
         "collection": "2cf51c5f165c4c569691617a492d9b21",
         "name": "TAX_BLOCK_POLYGON",
@@ -34,7 +33,7 @@ def extract_esri_shapes(geo_level, compute_centroids=False):
     and exports the result as a compressed Parquet file.
 
     Parameters:
-        geo_level (str): Geographic level to extract. Supports "nbhd" and other levels defined in `layer_params`.
+        geo_level (str): Geographic level to extract. Supports levels defined in `layer_params`.
         compute_centroids (bool): If True, compute centroids instead of using original polygons.
 
     Returns:
@@ -42,53 +41,43 @@ def extract_esri_shapes(geo_level, compute_centroids=False):
     """
     print(f"Starting extraction for geo_level: '{geo_level}' with centroids: {compute_centroids}")
 
-    if geo_level == "nbhd":
-        print("Reading neighborhood shapefile from local disk...")
-        gdf = gpd.read_file("input/DOF_NBHD_Dissolved/DOF_NBHD_Dissolved.shp")
-        gdf = gdf.rename(
-            columns={"Shape_Leng": "Shape__Length", "Shape_Area": "Shape__Area"}
-        )
-        gdf["OBJECTID"] = range(1, len(gdf) + 1)
-        print(f"Shapefile loaded with {len(gdf)} features.")
+    print("Accessing ArcGIS Online content...")
+    gis = GIS(timeout=10000)
 
-    else:
-        print("Accessing ArcGIS Online content...")
-        gis = GIS(timeout=10000)
+    collection_id = layer_params.get(geo_level, {}).get("collection", None)
+    collection = gis.content.get(collection_id)
 
-        collection_id = layer_params.get(geo_level, {}).get("collection", None)
-        collection = gis.content.get(collection_id)
+    if collection.access != "public":
+        print(f"Collection '{collection.title}' is not public. Aborting.")
+        return f"Collection {collection.title} is not public"
 
-        if collection.access != "public":
-            print(f"Collection '{collection.title}' is not public. Aborting.")
-            return f"Collection {collection.title} is not public"
+    print(f"Fetching layer for geo_level: {geo_level}")
+    layer_dict = {layer.properties.name: layer for layer in collection.layers}
 
-        print(f"Fetching layer for geo_level: {geo_level}")
-        layer_dict = {layer.properties.name: layer for layer in collection.layers}
+    layer_name = layer_params.get(geo_level, {}).get("name", None)
+    layer = layer_dict.get(layer_name, None)
 
-        layer_name = layer_params.get(geo_level, {}).get("name", None)
-        layer = layer_dict.get(layer_name, None)
+    crs = layer.properties.extent.spatialReference["latestWkid"]
+    print(f"Using CRS EPSG:{crs}")
 
-        crs = layer.properties.extent.spatialReference["latestWkid"]
-        print(f"Using CRS EPSG:{crs}")
+    fields = layer_params.get(geo_level, {}).get("fields", None)
+    print("Querying feature layer...")
+    geo_data = layer.query(where="1=1", out_fields=fields, return_geometry=True)
 
-        fields = layer_params.get(geo_level, {}).get("fields", None)
-        print("Querying feature layer...")
-        geo_data = layer.query(where="1=1", out_fields=fields, return_geometry=True)
+    attr = [f.attributes for f in geo_data.features]
+    geometries = [
+        Polygon(f.geometry).as_shapely if f.geometry else None
+        for f in geo_data.features
+    ]
 
-        attr = [f.attributes for f in geo_data.features]
-        geometries = [
-            Polygon(f.geometry).as_shapely if f.geometry else None
-            for f in geo_data.features
-        ]
+    gdf = gpd.GeoDataFrame(attr, geometry=geometries, crs=f"EPSG:{crs}")
+    print(f"GeoDataFrame created with {len(gdf)} features.")
 
-        gdf = gpd.GeoDataFrame(attr, geometry=geometries, crs=f"EPSG:{crs}")
-        print(f"GeoDataFrame created with {len(gdf)} features.")
-
-        str_cols = ["BBL", "BORO"]
-        for col in str_cols:
-            if col in gdf.columns:
-                gdf[col] = pd.to_numeric(gdf[col], errors="coerce", downcast="integer")
-                print(f"Converted column {col} to numeric.")
+    str_cols = ["BBL", "BORO"]
+    for col in str_cols:
+        if col in gdf.columns:
+            gdf[col] = pd.to_numeric(gdf[col], errors="coerce", downcast="integer")
+            print(f"Converted column {col} to numeric.")
 
     if compute_centroids:
         print("Computing centroids...")
@@ -152,7 +141,7 @@ def extract_esri_shapes(geo_level, compute_centroids=False):
 def main():
     parser = argparse.ArgumentParser(description="Build Geoparquet files from ESRI API")
     parser.add_argument(
-        "geo_level", help="The geometry of aggregation (boro, nbhd, block, lot)"
+        "geo_level", help="The geometry of aggregation (boro, block, lot)"
     )
 
     parser.add_argument(
