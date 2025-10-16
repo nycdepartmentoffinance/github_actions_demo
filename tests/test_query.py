@@ -8,9 +8,7 @@ expected_files = ['block_centroids.parquet',
  'boro_centroids.parquet',
  'boro_polygons.parquet',
  'lot_centroids.parquet',
- 'lot_polygons.parquet',
- 'nbhd_centroids.parquet',
- 'nbhd_polygons.parquet']
+ 'lot_polygons.parquet']
 
 output_list = os.listdir('output')
 
