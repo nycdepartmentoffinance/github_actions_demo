@@ -1,0 +1,58 @@
+on: 
+  schedule:
+    - cron: '0 7 * * 1' # runs every Monday at 7am EST
+  workflow_dispatch:
+  push: 
+      branches: 
+        - main
+  
+name: run-geo-query
+
+permissions: 
+ contents: write
+
+jobs:
+  data-download:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout-repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: install-uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.7.15'
+          
+      - name: Set up Python from .python-version
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: install-dependencies
+        run: sudo apt-get update && sudo apt-get install -y libkrb5-dev gdal-bin libgdal-dev
+        
+      - name: install-project
+        run: uv sync --locked --all-extras --dev
+
+      - name: remove old files
+        run: rm -rf output/*
+
+      - name: update-datasets
+        run: |
+          geogs='lot block boro'
+          for geo in $geogs; do echo "running $geo query"; uv run query.py $geo; uv run query.py $geo --centroids; done
+          
+      - name: run-tests
+        run: uv run pytest tests -v
+        
+      - name: commit-and-push
+        uses: actions-js/push@v1.5
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.head_ref || github.ref_name }}
+        
