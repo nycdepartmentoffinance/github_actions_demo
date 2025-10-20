@@ -11,7 +11,7 @@ There are two ways that this script can be run:
     *Note: this action is already set to run weekly, so if a weekly update is all you need, you can use the existing parquet files*.
 2. **On the command line**: If you want to have a bit more control over which specific files you want updated, you can run the script from the command line. First, you need to git clone this repository:
     ```bash
-    git clone https://github.com/nycdepartmentoffinance/geospatial_data.git
+    git clone https://github.com/nycdepartmentoffinance/github_actions_demo.git
     ```
     And then you can run the script, using it's own virtual environment, by using the following command:
     ```cmd
