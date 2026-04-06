@@ -1,5 +1,7 @@
 # GitHub Actions Demo -- Geospatial Data Transformation
 
+*Note: given small costs, we moved this to an annual run instead of weekly, but please feel free to use this as a guide on your own GitHub Actions!*
+
 This project automates the process to transform the up-to-date geometries from the [Digital Tax Map on ArcGIS Online](https://nyc.maps.arcgis.com/home/item.html?id=2cf51c5f165c4c569691617a492d9b21) to geo-dataframes that are easy to use in R or python.
 
 This action is performed by the `query.py` script, which extracts geographic boundary data from the NYC Open Data ArcGIS API (or a local shapefile for neighborhoods) and exports it as compressed GeoParquet files. It supports different geographic levels, such as boroughs, neighborhoods, blocks, and lots, and includes an option to output centroids instead of full polygons.
